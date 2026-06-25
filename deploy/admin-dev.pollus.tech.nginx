@@ -1,0 +1,57 @@
+# =========================================================
+# admin-dev.pollus.tech — Developer Portal Admin (SPA)
+# Shares the dev.pollus.tech Flask backend on 127.0.0.1:8001
+# (the /api/admin/* routes live in that same backend).
+#
+# This is the HTTP-only bootstrap block. Run certbot with
+# --nginx (see go-live.sh) and it will inject the 443 server
+# block + HTTP->HTTPS redirect automatically.
+# =========================================================
+server {
+    listen 80;
+    listen [::]:80;
+    server_name admin-dev.pollus.tech;
+    client_max_body_size 25M;
+
+    root /var/www/pollus_main_servers/admin-dev.pollus.tech/dist;
+    index index.html;
+
+    # Let certbot answer the ACME challenge from the document root.
+    location /.well-known/acme-challenge/ {
+        root /var/www/pollus_main_servers/admin-dev.pollus.tech/dist;
+        allow all;
+    }
+
+    # Deny dotfiles & sensitive extensions
+    location ~ /\.(?!well-known) { deny all; }
+    location ~* \.(ini|log|bak|old|orig|swp|env|map)$ { deny all; }
+
+    location = /index.html {
+        add_header Cache-Control "no-cache, must-revalidate";
+    }
+
+    location ~* \.(js|css|woff2?|ttf|otf|svg|ico|png|jpg|jpeg|gif|webp)$ {
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # SPA fallback
+    location / {
+        try_files $uri /index.html;
+    }
+
+    # API proxy -> same Flask backend as dev.pollus.tech
+    location /api/ {
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_pass http://127.0.0.1:8001;
+    }
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/javascript application/javascript application/json image/svg+xml;
+}

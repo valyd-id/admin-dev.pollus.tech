@@ -1,0 +1,173 @@
+import { useState } from "react";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  LayoutDashboard,
+  FolderKanban,
+  Users,
+  LogOut,
+  ShieldCheck,
+  Menu,
+  X,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
+import { initials } from "@/lib/format";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+const NAV = [
+  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/projects", label: "Projects", icon: FolderKanban, end: false },
+  { to: "/developers", label: "Developers", icon: Users, end: false },
+];
+
+function NavItem({ to, label, icon: Icon, end, onClick }: typeof NAV[number] & { onClick?: () => void }) {
+  return (
+    <NavLink to={to} end={end} onClick={onClick}>
+      {({ isActive }) => (
+        <div
+          className={cn(
+            "group relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors",
+            isActive ? "text-white" : "text-slate-400 hover:text-white"
+          )}
+        >
+          {isActive && (
+            <motion.div
+              layoutId="nav-active"
+              className="absolute inset-0 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 shadow-lg shadow-sky-500/25"
+              transition={{ type: "spring", stiffness: 380, damping: 32 }}
+            />
+          )}
+          <Icon className="relative z-10 h-[18px] w-[18px]" />
+          <span className="relative z-10">{label}</span>
+        </div>
+      )}
+    </NavLink>
+  );
+}
+
+function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <div className="flex h-full flex-col">
+      <Link to="/" className="flex items-center gap-2.5 px-2 py-1.5">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-cyan-500 shadow-lg shadow-sky-500/30">
+          <ShieldCheck className="h-5 w-5 text-white" />
+        </div>
+        <div className="leading-tight">
+          <div className="text-sm font-semibold text-white">Valyd Admin</div>
+          <div className="text-[11px] text-slate-500">Developer Portal</div>
+        </div>
+      </Link>
+
+      <nav className="mt-6 flex flex-1 flex-col gap-1.5">
+        {NAV.map((item) => (
+          <NavItem key={item.to} {...item} onClick={onNavigate} />
+        ))}
+      </nav>
+
+      <div className="rounded-xl border border-white/5 bg-white/[0.03] p-3 text-[11px] leading-relaxed text-slate-500">
+        Signed-in admins can view and manage every developer and project in the portal.
+      </div>
+    </div>
+  );
+}
+
+function AdminMenu() {
+  const { admin, logout } = useAuth();
+  const name = admin?.name || admin?.email || "Admin";
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-3 outline-none transition-colors hover:bg-muted">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-cyan-500 text-xs font-semibold text-white">
+          {initials(name)}
+        </div>
+        <div className="hidden text-left sm:block">
+          <div className="text-sm font-medium leading-tight">{name}</div>
+          <div className="text-[11px] capitalize leading-tight text-muted-foreground">{admin?.role}</div>
+        </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel className="font-normal">
+          <div className="text-sm font-medium">{name}</div>
+          <div className="text-xs text-muted-foreground">{admin?.email}</div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
+          <LogOut className="mr-2 h-4 w-4" /> Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+export function Layout() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const location = useLocation();
+
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+      {/* Desktop sidebar */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-slate-900 p-4 lg:flex">
+        <SidebarContent />
+      </aside>
+
+      {/* Mobile drawer */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <>
+            <motion.div
+              className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileOpen(false)}
+            />
+            <motion.aside
+              className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-slate-900 p-4 lg:hidden"
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", stiffness: 320, damping: 34 }}
+            >
+              <button
+                className="absolute right-3 top-3 text-slate-400 hover:text-white"
+                onClick={() => setMobileOpen(false)}
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <SidebarContent onNavigate={() => setMobileOpen(false)} />
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      <div className="lg:pl-64">
+        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border/60 bg-background/80 px-4 backdrop-blur-xl sm:px-6">
+          <button
+            className="rounded-lg p-2 text-muted-foreground hover:bg-muted lg:hidden"
+            onClick={() => setMobileOpen(true)}
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="hidden lg:block" />
+          <AdminMenu />
+        </header>
+
+        <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+          <AnimatePresence mode="wait">
+            <div key={location.pathname}>
+              <Outlet />
+            </div>
+          </AnimatePresence>
+        </main>
+      </div>
+    </div>
+  );
+}
