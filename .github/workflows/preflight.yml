@@ -1,0 +1,103 @@
+name: Preflight (admin-dev.pollus.tech)
+
+# Read-only health check of the deploy target. Makes NO changes to the server.
+# Run this before a real deploy to catch SSH / tooling / permission problems early.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: preflight-admin-dev-pollus
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read-only checks over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEV_HOST }}
+          username: ${{ secrets.DEV_USER }}
+          key: ${{ secrets.DEV_SSH_KEY }}
+          script_stop: false          # OFF: run every check even if earlier ones fail
+          script: |
+            # No `set -e`: every check must run to completion regardless of failures.
+            APP_DIR="/var/www/pollus_main_servers/admin-dev.pollus.tech"
+            BRANCH="main"
+            SITE="https://admin-dev.pollus.tech"
+            ok=0; warn=0; fail=0
+            report() {
+              case "$1" in
+                OK)   echo "[OK]   $2"; ok=$((ok+1));;
+                WARN) echo "[WARN] $2"; warn=$((warn+1));;
+                FAIL) echo "[FAIL] $2"; fail=$((fail+1));;
+              esac
+            }
+
+            echo "===== admin-dev.pollus.tech preflight ====="
+
+            # 1. SSH identity
+            report OK "SSH identity: $(whoami)@$(hostname)"
+
+            # 2. Required tools on PATH
+            for t in git node npm curl nginx; do
+              if command -v "$t" >/dev/null 2>&1; then
+                report OK "tool present: $t ($("$t" --version 2>&1 | head -n1))"
+              else
+                report FAIL "tool MISSING on PATH: $t"
+              fi
+            done
+            if command -v bun >/dev/null 2>&1; then
+              report WARN "bun is installed but UNUSED — this repo deploys with npm (package-lock.json)"
+            fi
+
+            # 3. Passwordless sudo (only needed for nginx reload / chown; deploy uses chmod instead)
+            if sudo -n true 2>/dev/null; then
+              report OK "passwordless sudo available"
+            else
+              report WARN "no passwordless sudo (fine for normal deploys; needed only for nginx conf changes via go-live.sh)"
+            fi
+
+            # 4. App dir exists / writable
+            if [ -d "$APP_DIR" ]; then
+              report OK "app dir exists: $APP_DIR"
+              if [ -w "$APP_DIR" ]; then report OK "app dir writable by $(whoami)"; else report FAIL "app dir NOT writable by $(whoami)"; fi
+            else
+              report FAIL "app dir missing: $APP_DIR"
+            fi
+
+            # 5. .env present (optional for this frontend unless VITE_* build vars are used)
+            if [ -f "$APP_DIR/.env" ]; then
+              report OK ".env present"
+            else
+              report WARN ".env absent — OK for this repo (build needs none unless you add VITE_* vars)"
+            fi
+
+            # 6. git origin reachable + clean tree
+            if [ -d "$APP_DIR/.git" ]; then
+              if git -C "$APP_DIR" ls-remote --heads origin "$BRANCH" >/dev/null 2>&1; then
+                report OK "git origin reachable, branch '$BRANCH' exists"
+              else
+                report FAIL "git origin unreachable (check deploy SSH key / network)"
+              fi
+              if [ -z "$(git -C "$APP_DIR" status --porcelain -uno)" ]; then
+                report OK "no uncommitted changes to tracked files"
+              else
+                report WARN "uncommitted tracked changes present — a deploy would ABORT until resolved"
+              fi
+            else
+              report WARN "no .git in app dir — first deploy needs a one-time clone"
+            fi
+
+            # 7. DB reachability (SELECT 1) — N/A for this repo
+            report WARN "DB check N/A: this is a static frontend; Postgres 'dev_db' is owned by backend repo (dev.pollus.tech)"
+
+            # 8. Live-site health (read-only)
+            code="$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 10 "$SITE/" || echo 000)"
+            if [ "$code" = "200" ]; then report OK "live site $SITE/ -> 200"; else report WARN "live site $SITE/ -> $code"; fi
+
+            echo ""
+            echo "===== Summary: $ok OK / $warn WARN / $fail FAIL ====="
+
+            # All checks have already run. Mark the job red only on a hard FAIL.
+            [ "$fail" -eq 0 ]

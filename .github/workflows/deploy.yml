@@ -1,0 +1,133 @@
+name: Deploy (admin-dev.pollus.tech)
+
+# Manual-only. Nothing deploys automatically.
+# To re-enable push-to-deploy later, add (and keep workflow_dispatch too):
+#   push:
+#     branches: [ main ]
+on:
+  workflow_dispatch:
+    inputs:
+      run_migrations:
+        description: "Run DB migrations (N/A for this static frontend — leave false)"
+        type: boolean
+        default: false
+
+# Never let two deploys overlap. Don't cancel an in-flight deploy mid-build.
+concurrency:
+  group: deploy-admin-dev-pollus
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEV_HOST }}
+          username: ${{ secrets.DEV_USER }}
+          key: ${{ secrets.DEV_SSH_KEY }}
+          # No DEV_PORT secret is configured -> SSH defaults to 22.
+          # If you add one later:  port: ${{ secrets.DEV_PORT }}
+          script_stop: true          # abort on first failing command
+          envs: RUN_MIGRATIONS
+          script: |
+            set -euo pipefail
+
+            APP_DIR="/var/www/pollus_main_servers/admin-dev.pollus.tech"
+            BRANCH="main"
+
+            echo "==> cd $APP_DIR"
+            cd "$APP_DIR"
+
+            if [ ! -d .git ]; then
+              echo "FAIL: $APP_DIR is not a git checkout. Bootstrap it once with a clone before using this workflow."
+              exit 1
+            fi
+
+            echo "==> Fetching origin/$BRANCH"
+            git fetch --prune origin "$BRANCH"
+
+            # --- Safety gate 5a: refuse to clobber uncommitted work to TRACKED files.
+            # -uno excludes untracked files (dist/ and node_modules/ are gitignored and
+            # rebuilt every run, so they must not block a deploy).
+            DIRTY="$(git status --porcelain -uno)"
+            if [ -n "$DIRTY" ]; then
+              echo "FAIL: server has uncommitted changes to tracked files. Refusing to reset --hard."
+              echo "$DIRTY"
+              exit 1
+            fi
+
+            # --- Safety gate 5b: refuse to discard local commits not yet on origin.
+            LOCAL_ONLY="$(git rev-list "origin/$BRANCH..HEAD" 2>/dev/null || true)"
+            if [ -n "$LOCAL_ONLY" ]; then
+              echo "FAIL: server HEAD has commits not on origin/$BRANCH. Refusing to discard human work:"
+              git log --oneline "origin/$BRANCH..HEAD"
+              exit 1
+            fi
+
+            echo "==> Resetting working tree to origin/$BRANCH (deterministic, no merge)"
+            git reset --hard "origin/$BRANCH"
+
+            echo "==> Installing dependencies (npm ci — uses committed package-lock.json)"
+            npm ci
+
+            echo "==> Building SPA (npm run build -> dist/)"
+            npm run build
+
+            # Verify the build actually produced something before we call it a success.
+            test -f dist/index.html || { echo "FAIL: dist/index.html missing after build"; exit 1; }
+
+            # --- Permissions (req 10): make dist/ world-readable so nginx's www-data can
+            # serve it. Done with chmod as the file owner -> NO sudo / TTY needed.
+            # (If you ever prefer ownership transfer instead, passwordless sudo is required
+            #  because CI has no TTY for a password prompt:
+            #     sudo -n chown -R www-data:www-data dist )
+            find dist -type d -exec chmod 755 {} +
+            find dist -type f -exec chmod 644 {} +
+
+            # --- Migrations (req 8): intentionally a NO-OP here.
+            # This repo is a static Vite/React frontend with no database. The Postgres
+            # 'dev_db' and all migrations are owned by the backend repo (dev.pollus.tech).
+            # We refuse to back up or migrate a DB this repo does not own.
+            if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
+              echo "NOTE: run_migrations=true ignored — this frontend repo has no DB/migrations."
+              echo "      Run migrations from the backend repo (dev.pollus.tech) instead."
+            else
+              echo "Migrations: disabled (read-only). Nothing to do in this repo."
+            fi
+
+            # --- Cache (req 9): N/A. No 'php artisan'. Vite emits content-hashed,
+            #     immutable assets; nginx is already configured (index.html no-cache,
+            #     hashed assets immutable). Nothing to cache here.
+            # --- Workers (req 11): N/A. No queue/scheduler/worker in this repo.
+            # --- nginx: serving new static files needs no reload. Conf changes are
+            #     applied separately via deploy/go-live.sh (which needs sudo).
+
+            echo "==> Server-side deploy complete. Public smoke test runs next."
+
+      - name: Smoke test (fail red if the live site is not healthy)
+        run: |
+          set -euo pipefail
+          BASE="https://admin-dev.pollus.tech"
+
+          check() {
+            local path="$1" tries=0 code
+            while [ "$tries" -lt 10 ]; do
+              code="$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 10 "$BASE$path" || true)"
+              if [ "$code" = "200" ]; then
+                echo "[OK]   $path -> 200"
+                return 0
+              fi
+              tries=$((tries + 1))
+              echo "[..]   $path -> ${code:-000} (attempt $tries/10)"
+              sleep 5
+            done
+            echo "[FAIL] $path never returned 200"
+            return 1
+          }
+
+          # "/" = SPA index; "/login" = SPA deep route (must 200 via try_files fallback).
+          check "/"
+          check "/login"
+          echo "Smoke test passed."
