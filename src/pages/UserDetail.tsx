@@ -74,8 +74,7 @@ export default function UserDetail() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Identity" icon={ShieldCheck}>
-          <Row k="Valyd ID" v={<span className="font-mono text-xs">{data.pollus_id || "—"}</span>} />
-          <Row k="Anon ID" v={<span className="font-mono text-xs">{data.anon_id || "—"}</span>} />
+          <Row k="Valyd ID" v={<span className="font-mono text-xs">{data.valyd_id || "—"}</span>} />
           <Row k="Country" v={data.country ? <span className="inline-flex items-center gap-1"><Globe className="h-3.5 w-3.5" />{data.country}</span> : "—"} />
           <Row k="Phone" v={data.phone ? <span className="inline-flex items-center gap-1"><Phone className="h-3.5 w-3.5" />{data.phone}</span> : "—"} />
           <Row k="Joined" v={formatDate(data.created_at)} />

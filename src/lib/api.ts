@@ -118,7 +118,7 @@ export interface IdpUser {
   full_name?: string | null;
   email?: string | null;
   username?: string | null;
-  pollus_id?: string | null;
+  valyd_id?: string | null;
   id_verified?: boolean;
   country?: string | null;
   is_18_plus?: boolean;

@@ -93,7 +93,7 @@ export default function Users() {
                   <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1.5 font-mono truncate">
                       <Fingerprint className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{u.pollus_id || "—"}</span>
+                      <span className="truncate">{u.valyd_id || "—"}</span>
                     </span>
                     <span className="shrink-0">Joined {formatDate(u.created_at)}</span>
                   </div>
