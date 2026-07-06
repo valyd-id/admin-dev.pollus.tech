@@ -9,8 +9,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Users, FolderKanban, Clock, BadgeCheck, ArrowRight, FolderKanban as FK } from "lucide-react";
-import { api, type Stats } from "@/lib/api";
+import { Users, FolderKanban, Clock, BadgeCheck, ArrowRight, FolderKanban as FK, UserRound, ShieldCheck, DollarSign, Wallet } from "lucide-react";
+import { api, type Stats, type IdpOverview } from "@/lib/api";
 import { PageTransition, staggerContainer, staggerItem } from "@/components/PageTransition";
 import { StatCard } from "@/components/StatCard";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -35,6 +35,10 @@ const STATUS_BARS = [
 export default function Dashboard() {
   const { admin } = useAuth();
   const { data, isLoading } = useStats();
+  const { data: idp } = useQuery({
+    queryKey: ["idp-overview"],
+    queryFn: async () => (await api.get("/admin/idp/overview")).data.data as IdpOverview,
+  });
 
   if (isLoading || !data) return <Loader />;
 
@@ -49,8 +53,17 @@ export default function Dashboard() {
         <h1 className="text-2xl font-semibold tracking-tight">
           Welcome back{admin?.name ? `, ${admin.name.split(" ")[0]}` : ""}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">Here's what's happening across the developer portal.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Identity &amp; developer activity across the Valyd platform.</p>
       </div>
+
+      {idp && (
+        <motion.div variants={staggerContainer} initial="hidden" animate="show" className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Identities" value={idp.total_users} icon={UserRound} accent="sky" hint={`${idp.verified_users} ID-verified`} />
+          <StatCard label="Verify sessions" value={idp.verify_sessions} icon={ShieldCheck} accent="violet" hint={`${idp.total_developers} developers`} />
+          <StatCard label="Verify revenue" value={`$${idp.verify_revenue.toLocaleString()}`} icon={DollarSign} accent="emerald" hint="total metered spend" />
+          <StatCard label="Balance held" value={`$${idp.balance_outstanding.toLocaleString()}`} icon={Wallet} accent="amber" hint="developer wallets" />
+        </motion.div>
+      )}
 
       <motion.div
         variants={staggerContainer}

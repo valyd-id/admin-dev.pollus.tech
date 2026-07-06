@@ -1,7 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { ArrowLeft, BadgeCheck, Mail, Phone, Fingerprint, CalendarDays, FolderKanban } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Mail, Phone, Fingerprint, CalendarDays, FolderKanban, ShieldCheck } from "lucide-react";
 import { api, type Developer } from "@/lib/api";
 import { PageTransition, staggerContainer, staggerItem } from "@/components/PageTransition";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -75,6 +75,41 @@ export default function DeveloperDetail() {
               <InfoRow icon={Fingerprint} label="Anon ID" value={u.anon_id} />
               <InfoRow icon={CalendarDays} label="Joined" value={formatDateTime(u.created_at)} />
             </div>
+          </div>
+
+          {/* Verify usage */}
+          <div className="mt-4 rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <div className="mb-4 flex items-center gap-2 text-sm font-semibold"><ShieldCheck className="h-4 w-4 text-emerald-400" /> Verify usage</div>
+            {u.verify?.linked ? (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-border bg-background/40 p-3">
+                    <div className="text-xs text-muted-foreground">Balance</div>
+                    <div className="mt-1 text-xl font-semibold tabular-nums">${(u.verify.balance ?? 0).toFixed(2)}</div>
+                  </div>
+                  <div className="rounded-xl border border-border bg-background/40 p-3">
+                    <div className="text-xs text-muted-foreground">Total spent</div>
+                    <div className="mt-1 text-xl font-semibold tabular-nums text-emerald-400">${(u.verify.total_spent ?? 0).toFixed(2)}</div>
+                  </div>
+                </div>
+                <div className="mt-3 space-y-1.5 text-sm">
+                  <div className="flex items-center justify-between"><span className="text-muted-foreground">Verify projects</span><span className="font-medium">{u.verify.projects.length}</span></div>
+                  <div className="flex items-center justify-between"><span className="text-muted-foreground">Sessions run</span><span className="font-medium">{u.verify.sessions}</span></div>
+                </div>
+                {Object.keys(u.verify.features_used ?? {}).length > 0 && (
+                  <div className="mt-3">
+                    <div className="mb-1.5 text-xs text-muted-foreground">Checks used</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {Object.entries(u.verify.features_used).map(([f, c]) => (
+                        <span key={f} className="rounded-md bg-sky-500/10 px-2 py-0.5 text-[11px] text-sky-400">{f} ×{c as number}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">Not using Verify yet.</p>
+            )}
           </div>
         </div>
 

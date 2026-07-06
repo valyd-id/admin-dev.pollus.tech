@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   FolderKanban,
   Users,
+  UserRound,
   LogOut,
   ShieldCheck,
   Menu,
@@ -24,8 +25,9 @@ import {
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/projects", label: "Projects", icon: FolderKanban, end: false },
+  { to: "/users", label: "Users", icon: UserRound, end: false },
   { to: "/developers", label: "Developers", icon: Users, end: false },
+  { to: "/projects", label: "Projects", icon: FolderKanban, end: false },
 ];
 
 function NavItem({ to, label, icon: Icon, end, onClick }: typeof NAV[number] & { onClick?: () => void }) {
@@ -61,8 +63,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <ShieldCheck className="h-5 w-5 text-white" />
         </div>
         <div className="leading-tight">
-          <div className="text-sm font-semibold text-white">Valyd Admin</div>
-          <div className="text-[11px] text-slate-500">Developer Portal</div>
+          <div className="text-sm font-semibold text-white">Valyd IdP Admin</div>
+          <div className="text-[11px] text-slate-500">Identity &amp; Developers</div>
         </div>
       </Link>
 

@@ -95,6 +95,71 @@ export interface Developer {
   created_at?: string;
   project_count?: number;
   projects?: Project[];
+  // Verify usage (from the merged console)
+  verify_linked?: boolean;
+  balance?: number;
+  total_spent?: number;
+  verify?: VerifyUsage;
+}
+
+export interface VerifyUsage {
+  linked: boolean;
+  console_user_id?: number;
+  balance: number;
+  total_spent: number;
+  sessions: number;
+  projects: { id: number; name: string; api_key_prefix?: string }[];
+  features_used: Record<string, number>;
+}
+
+// ---------- IdP identities (end-users) ----------
+export interface IdpUser {
+  id: number;
+  full_name?: string | null;
+  email?: string | null;
+  username?: string | null;
+  pollus_id?: string | null;
+  id_verified?: boolean;
+  country?: string | null;
+  is_18_plus?: boolean;
+  is_21_plus?: boolean;
+  is_65_plus?: boolean;
+  is_active?: boolean;
+  kyc_status?: string | null;
+  created_at?: string;
+}
+
+export interface KycProcess {
+  id: number; status: string; current_stage?: string; progress?: number;
+  ocr_doc_type?: string; face_status?: string; gov_status?: string; zkp_status?: string;
+  submitted_at?: string | null; completed_at?: string | null; created_at?: string;
+}
+export interface HumanVerification { id: number; status: string; method?: string; created_at?: string; }
+export interface LicenseVerification {
+  id: number; license_type?: string; status: string; external_ref?: string;
+  checked_at?: string | null; expire_at?: string | null; created_at?: string;
+}
+export interface IdpUserDetail extends IdpUser {
+  phone?: string | null;
+  anon_id?: string | null;
+  age_proofs?: Record<string, boolean>;
+  pseudonyms?: { name?: string | null; username?: string | null; email?: string | null };
+  reverify_required?: boolean;
+  kyc_processes?: KycProcess[];
+  human_verifications?: HumanVerification[];
+  license_verifications?: LicenseVerification[];
+}
+
+export interface IdpOverview {
+  total_users: number;
+  verified_users: number;
+  total_developers: number;
+  total_projects: number;
+  kyc_by_status: Record<string, number>;
+  signup_trend: { date: string; count: number }[];
+  verify_revenue: number;
+  balance_outstanding: number;
+  verify_sessions: number;
 }
 
 export interface Pagination {
