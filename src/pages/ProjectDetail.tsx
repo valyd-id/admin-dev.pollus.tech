@@ -20,6 +20,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { ScopeBadges } from "@/components/ScopeBadges";
 import { CopyField } from "@/components/CopyField";
 import { Loader } from "@/components/Loader";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ownerName, formatDateTime, initials } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
@@ -63,6 +64,7 @@ export default function ProjectDetail() {
   const qc = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<ProjectStatus | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["project", id],
@@ -141,7 +143,12 @@ export default function ProjectDetail() {
             {STATUSES.map((s) => (
               <button
                 key={s}
-                onClick={() => p.status !== s && statusMut.mutate(s)}
+                onClick={() => {
+                  if (p.status === s) return;
+                  // Deactivating cuts off the client's ability to authenticate — confirm first.
+                  if (s === "inactive") setPendingStatus(s);
+                  else statusMut.mutate(s);
+                }}
                 disabled={statusMut.isPending}
                 className={cn(
                   "relative rounded-lg px-4 py-1.5 text-sm font-medium capitalize transition-colors",
@@ -236,12 +243,23 @@ export default function ProjectDetail() {
       </div>
 
       <EditDialog project={p} open={editOpen} onClose={() => setEditOpen(false)} />
-      <ConfirmDelete
+      <ConfirmDialog
         open={confirmDelete}
-        name={p.name}
+        title="Delete project?"
+        description={<>This permanently deletes <span className="font-semibold text-foreground">{p.name}</span> and revokes its credentials. This cannot be undone.</>}
+        confirmLabel="Delete"
         loading={deleteMut.isPending}
-        onCancel={() => setConfirmDelete(false)}
         onConfirm={() => deleteMut.mutate()}
+        onCancel={() => setConfirmDelete(false)}
+      />
+      <ConfirmDialog
+        open={pendingStatus === "inactive"}
+        title="Deactivate this project?"
+        description={<>Deactivating <span className="font-semibold text-foreground">{p.name}</span> immediately blocks it from authenticating users. You can re-activate it later.</>}
+        confirmLabel="Deactivate"
+        loading={statusMut.isPending}
+        onConfirm={() => statusMut.mutate("inactive", { onSuccess: () => setPendingStatus(null) })}
+        onCancel={() => setPendingStatus(null)}
       />
     </PageTransition>
   );
@@ -370,41 +388,3 @@ function EditDialog({ project, open, onClose }: { project: Project; open: boolea
   );
 }
 
-function ConfirmDelete({
-  open,
-  name,
-  loading,
-  onCancel,
-  onConfirm,
-}: {
-  open: boolean;
-  name: string;
-  loading: boolean;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onCancel()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Delete project?</DialogTitle>
-          <DialogDescription>
-            This permanently deletes <span className="font-semibold text-foreground">{name}</span> and revokes its
-            credentials. This cannot be undone.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <button onClick={onCancel} className="rounded-xl border border-border px-4 py-2 text-sm font-medium transition hover:bg-muted">Cancel</button>
-          <button
-            onClick={onConfirm}
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl bg-destructive px-4 py-2 text-sm font-semibold text-destructive-foreground transition hover:bg-destructive/90 disabled:opacity-60"
-          >
-            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-            Delete
-          </button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}

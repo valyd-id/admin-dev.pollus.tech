@@ -91,6 +91,7 @@ export interface Developer {
   pollus_user_id?: string;
   anon_id?: string;
   id_verified?: boolean;
+  is_active?: boolean;
   dob?: string | null;
   created_at?: string;
   project_count?: number;

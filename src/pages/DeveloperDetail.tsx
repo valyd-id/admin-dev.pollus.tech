@@ -1,13 +1,16 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { ArrowLeft, BadgeCheck, Mail, Phone, Fingerprint, CalendarDays, FolderKanban, ShieldCheck } from "lucide-react";
-import { api, type Developer } from "@/lib/api";
+import { ArrowLeft, BadgeCheck, Mail, Phone, Fingerprint, CalendarDays, FolderKanban, ShieldCheck, Ban, RotateCcw } from "lucide-react";
+import { api, apiError, type Developer } from "@/lib/api";
 import { PageTransition, staggerContainer, staggerItem } from "@/components/PageTransition";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ScopeBadges } from "@/components/ScopeBadges";
 import { EmptyState } from "@/components/EmptyState";
 import { Loader } from "@/components/Loader";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ownerName, initials, formatDate, formatDateTime } from "@/lib/format";
 
 function InfoRow({ icon: Icon, label, value }: { icon: typeof Mail; label: string; value?: string | null }) {
@@ -26,15 +29,29 @@ function InfoRow({ icon: Icon, label, value }: { icon: typeof Mail; label: strin
 
 export default function DeveloperDetail() {
   const { id } = useParams();
+  const qc = useQueryClient();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ["developer", id],
     queryFn: async () => (await api.get(`/admin/users/${id}`)).data.user as Developer,
+  });
+
+  const statusMut = useMutation({
+    mutationFn: async (active: boolean) => (await api.patch(`/admin/users/${id}/status`, { active })).data,
+    onSuccess: (_res, active) => {
+      toast.success(active ? "Developer reactivated" : "Developer deactivated");
+      setConfirmOpen(false);
+      qc.invalidateQueries({ queryKey: ["developer", id] });
+      qc.invalidateQueries({ queryKey: ["developers"] });
+    },
+    onError: (e) => toast.error(apiError(e)),
   });
 
   if (isLoading || !data) return <Loader />;
   const u = data;
   const name = ownerName(u);
   const projects = u.projects || [];
+  const active = u.is_active !== false;
 
   return (
     <PageTransition>
@@ -57,15 +74,33 @@ export default function DeveloperDetail() {
               </div>
               <h1 className="mt-4 text-lg font-semibold">{name}</h1>
               <p className="text-sm text-muted-foreground">{u.email || "No email"}</p>
-              {u.id_verified ? (
-                <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-400">
-                  <BadgeCheck className="h-3 w-3" /> Identity verified
-                </span>
-              ) : (
-                <span className="mt-2 inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                  Not verified
-                </span>
-              )}
+              <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+                {u.id_verified ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-400">
+                    <BadgeCheck className="h-3 w-3" /> Identity verified
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                    Not verified
+                  </span>
+                )}
+                {!active && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-medium text-destructive ring-1 ring-inset ring-destructive/20">
+                    <Ban className="h-3 w-3" /> Deactivated
+                  </span>
+                )}
+              </div>
+
+              <button
+                onClick={() => setConfirmOpen(true)}
+                className={`mt-4 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                  active
+                    ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    : "bg-emerald-600 text-white hover:bg-emerald-500"
+                }`}
+              >
+                {active ? <><Ban className="h-4 w-4" /> Deactivate developer</> : <><RotateCcw className="h-4 w-4" /> Reactivate developer</>}
+              </button>
             </div>
 
             <div className="mt-5 divide-y divide-border border-t border-border">
@@ -154,6 +189,23 @@ export default function DeveloperDetail() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        tone={active ? "destructive" : "default"}
+        title={active ? "Deactivate this developer?" : "Reactivate this developer?"}
+        description={
+          active ? (
+            <>This disables <span className="font-semibold text-foreground">{name}</span>'s portal access and revokes their session. Their account, projects and history are kept and can be reactivated at any time.</>
+          ) : (
+            <>This restores portal access for <span className="font-semibold text-foreground">{name}</span>.</>
+          )
+        }
+        confirmLabel={active ? "Deactivate" : "Reactivate"}
+        loading={statusMut.isPending}
+        onConfirm={() => statusMut.mutate(active ? false : true)}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </PageTransition>
   );
 }

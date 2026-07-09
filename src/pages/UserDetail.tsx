@@ -1,10 +1,13 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, BadgeCheck, Fingerprint, ShieldCheck, ScanFace, IdCard, ScrollText, Globe, Phone } from "lucide-react";
-import { api, type IdpUserDetail } from "@/lib/api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { ArrowLeft, BadgeCheck, Fingerprint, ShieldCheck, ScanFace, IdCard, ScrollText, Globe, Phone, Ban, RotateCcw } from "lucide-react";
+import { api, apiError, type IdpUserDetail } from "@/lib/api";
 import { PageTransition } from "@/components/PageTransition";
 import { Loader } from "@/components/Loader";
 import { EmptyState } from "@/components/EmptyState";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { initials, formatDate } from "@/lib/format";
 
 const displayName = (u: IdpUserDetail) => u.full_name || u.username || (u.email ? u.email.split("@")[0] : "") || "Anonymous";
@@ -35,15 +38,29 @@ const Row = ({ k, v }: { k: string; v: React.ReactNode }) => (
 
 export default function UserDetail() {
   const { id } = useParams();
+  const qc = useQueryClient();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ["idp-user", id],
     queryFn: async () => (await api.get(`/admin/idp/users/${id}`)).data.user as IdpUserDetail,
+  });
+
+  const statusMut = useMutation({
+    mutationFn: async (active: boolean) => (await api.post(`/admin/idp/users/${id}/status`, { active })).data,
+    onSuccess: (_res, active) => {
+      toast.success(active ? "Identity reactivated" : "Identity deactivated");
+      setConfirmOpen(false);
+      qc.invalidateQueries({ queryKey: ["idp-user", id] });
+      qc.invalidateQueries({ queryKey: ["idp-users"] });
+    },
+    onError: (e) => toast.error(apiError(e)),
   });
 
   if (isLoading) return <Loader />;
   if (!data) return <EmptyState icon={Fingerprint} title="User not found" description="This identity does not exist." />;
 
   const name = displayName(data);
+  const active = data.is_active !== false;
   const ages = Object.entries(data.age_proofs ?? {}).filter(([, v]) => v).map(([k]) => k.replace("is_", "").replace("_plus", "+"));
 
   return (
@@ -68,7 +85,17 @@ export default function UserDetail() {
         <div className="ml-auto flex items-center gap-2">
           {data.id_verified ? <Pill s="verified" /> : <Pill s="unverified" />}
           {data.reverify_required && <Pill s="reverify required" />}
-          <span className={`rounded-full border px-2 py-0.5 text-[11px] ${data.is_active ? "border-emerald-500/30 text-emerald-400" : "border-slate-500/30 text-slate-400"}`}>{data.is_active ? "active" : "inactive"}</span>
+          <span className={`rounded-full border px-2 py-0.5 text-[11px] ${active ? "border-emerald-500/30 text-emerald-400" : "border-rose-500/30 text-rose-400"}`}>{active ? "active" : "deactivated"}</span>
+          <button
+            onClick={() => setConfirmOpen(true)}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-semibold transition ${
+              active
+                ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                : "bg-emerald-600 text-white hover:bg-emerald-500"
+            }`}
+          >
+            {active ? <><Ban className="h-4 w-4" /> Deactivate</> : <><RotateCcw className="h-4 w-4" /> Reactivate</>}
+          </button>
         </div>
       </div>
 
@@ -136,6 +163,23 @@ export default function UserDetail() {
           ) : <p className="text-sm text-muted-foreground">No licenses.</p>}
         </Card>
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        tone={active ? "destructive" : "default"}
+        title={active ? "Deactivate this identity?" : "Reactivate this identity?"}
+        description={
+          active ? (
+            <>This disables <span className="font-semibold text-foreground">{name}</span>'s Valyd account and revokes active sessions. Their KYC, biometric and license history are retained for audit and the identity can be reactivated at any time. This is not a permanent deletion.</>
+          ) : (
+            <>This restores <span className="font-semibold text-foreground">{name}</span>'s Valyd account and lets them sign in again.</>
+          )
+        }
+        confirmLabel={active ? "Deactivate" : "Reactivate"}
+        loading={statusMut.isPending}
+        onConfirm={() => statusMut.mutate(active ? false : true)}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </PageTransition>
   );
 }
