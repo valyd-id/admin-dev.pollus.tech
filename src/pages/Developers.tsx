@@ -81,7 +81,14 @@ export default function Developers() {
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold">{name}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="truncate text-sm font-semibold">{name}</p>
+                        {u.is_system && (
+                          <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground ring-1 ring-inset ring-border">
+                            System
+                          </span>
+                        )}
+                      </div>
                       <p className="truncate text-xs text-muted-foreground">{u.email || "No email"}</p>
                     </div>
                   </div>

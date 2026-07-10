@@ -8,6 +8,7 @@ import {
   UserRound,
   LogOut,
   ShieldCheck,
+  Server,
   Menu,
   X,
 } from "lucide-react";
@@ -28,6 +29,7 @@ const NAV = [
   { to: "/users", label: "Users", icon: UserRound, end: false },
   { to: "/developers", label: "Developers", icon: Users, end: false },
   { to: "/projects", label: "Projects", icon: FolderKanban, end: false },
+  { to: "/first-party", label: "First-party", icon: Server, end: false },
 ];
 
 function NavItem({ to, label, icon: Icon, end, onClick }: typeof NAV[number] & { onClick?: () => void }) {

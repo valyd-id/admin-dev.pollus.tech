@@ -60,7 +60,8 @@ export interface Owner {
   full_name?: string;
   first_name?: string;
   last_name?: string;
-  pollus_user_id?: string;
+  valyd_id?: string | null;
+  is_system?: boolean;
   id_verified?: boolean;
 }
 
@@ -77,8 +78,11 @@ export interface Project {
   status: ProjectStatus;
   created_at: string;
   user_id: number;
-  pollus_user_id?: string | null;
+  /** Platform-owned OIDC client (dev-web, verify-console, …) — no developer behind it. */
+  is_first_party?: boolean;
   owner?: Owner | null;
+  /** Returned exactly once, at creation. */
+  client_secret?: string;
 }
 
 export interface Developer {
@@ -89,9 +93,16 @@ export interface Developer {
   last_name?: string;
   phone_number?: string;
   pollus_user_id?: string;
-  anon_id?: string;
   id_verified?: boolean;
-  is_active?: boolean;
+  /** Stored pseudonym (what the developer signed up with via Valyd SSO). */
+  pseudonym_name?: string | null;
+  pseudonym_email?: string | null;
+  /** Resolved from the linked Valyd identity; null for seeded system accounts. */
+  valyd_id?: string | null;
+  /** Seeded platform account (e.g. "SSO System") with no Valyd identity behind it. */
+  is_system?: boolean;
+  /** The linked Valyd identity has been deleted. */
+  identity_deleted?: boolean;
   dob?: string | null;
   created_at?: string;
   project_count?: number;

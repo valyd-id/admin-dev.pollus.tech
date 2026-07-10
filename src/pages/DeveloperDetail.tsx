@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { ArrowLeft, BadgeCheck, Mail, Phone, Fingerprint, CalendarDays, FolderKanban, ShieldCheck, Ban, RotateCcw } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Mail, Phone, Fingerprint, CalendarDays, FolderKanban, ShieldCheck, Trash2, Server } from "lucide-react";
 import { api, apiError, type Developer } from "@/lib/api";
 import { PageTransition, staggerContainer, staggerItem } from "@/components/PageTransition";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -29,6 +29,7 @@ function InfoRow({ icon: Icon, label, value }: { icon: typeof Mail; label: strin
 
 export default function DeveloperDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { data, isLoading } = useQuery({
@@ -36,13 +37,14 @@ export default function DeveloperDetail() {
     queryFn: async () => (await api.get(`/admin/users/${id}`)).data.user as Developer,
   });
 
-  const statusMut = useMutation({
-    mutationFn: async (active: boolean) => (await api.patch(`/admin/users/${id}/status`, { active })).data,
-    onSuccess: (_res, active) => {
-      toast.success(active ? "Developer reactivated" : "Developer deactivated");
+  const deleteMut = useMutation({
+    mutationFn: async () => (await api.delete(`/admin/users/${id}`)).data,
+    onSuccess: () => {
+      toast.success("Developer deleted");
       setConfirmOpen(false);
-      qc.invalidateQueries({ queryKey: ["developer", id] });
       qc.invalidateQueries({ queryKey: ["developers"] });
+      qc.invalidateQueries({ queryKey: ["stats"] });
+      navigate("/developers");
     },
     onError: (e) => toast.error(apiError(e)),
   });
@@ -51,7 +53,6 @@ export default function DeveloperDetail() {
   const u = data;
   const name = ownerName(u);
   const projects = u.projects || [];
-  const active = u.is_active !== false;
 
   return (
     <PageTransition>
@@ -84,30 +85,33 @@ export default function DeveloperDetail() {
                     Not verified
                   </span>
                 )}
-                {!active && (
+                {u.is_system && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-inset ring-border">
+                    <Server className="h-3 w-3" /> System account
+                  </span>
+                )}
+                {u.identity_deleted && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-medium text-destructive ring-1 ring-inset ring-destructive/20">
-                    <Ban className="h-3 w-3" /> Deactivated
+                    Identity deleted
                   </span>
                 )}
               </div>
 
               <button
                 onClick={() => setConfirmOpen(true)}
-                className={`mt-4 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                  active
-                    ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    : "bg-emerald-600 text-white hover:bg-emerald-500"
-                }`}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm font-semibold text-destructive transition hover:bg-destructive/10"
               >
-                {active ? <><Ban className="h-4 w-4" /> Deactivate developer</> : <><RotateCcw className="h-4 w-4" /> Reactivate developer</>}
+                <Trash2 className="h-4 w-4" /> Delete developer
               </button>
             </div>
 
             <div className="mt-5 divide-y divide-border border-t border-border">
               <InfoRow icon={Mail} label="Email" value={u.email} />
               <InfoRow icon={Phone} label="Phone" value={u.phone_number} />
-              <InfoRow icon={Fingerprint} label="Pollus user ID" value={u.pollus_user_id} />
-              <InfoRow icon={Fingerprint} label="Anon ID" value={u.anon_id} />
+              {/* The developer signs up under a pseudonym; the admin sees the real identity
+                  above and the pseudonym they present to the outside world here. */}
+              {!u.is_system && <InfoRow icon={Fingerprint} label="Pseudonym" value={u.pseudonym_name} />}
+              {!u.is_system && <InfoRow icon={Fingerprint} label="Valyd ID" value={u.valyd_id} />}
               <InfoRow icon={CalendarDays} label="Joined" value={formatDateTime(u.created_at)} />
             </div>
           </div>
@@ -192,18 +196,17 @@ export default function DeveloperDetail() {
 
       <ConfirmDialog
         open={confirmOpen}
-        tone={active ? "destructive" : "default"}
-        title={active ? "Deactivate this developer?" : "Reactivate this developer?"}
+        title="Delete this developer?"
         description={
-          active ? (
-            <>This disables <span className="font-semibold text-foreground">{name}</span>'s portal access and revokes their session. Their account, projects and history are kept and can be reactivated at any time.</>
-          ) : (
-            <>This restores portal access for <span className="font-semibold text-foreground">{name}</span>.</>
-          )
+          <>
+            This deletes <span className="font-semibold text-foreground">{name}</span> from the portal. They will no longer
+            appear in any admin listing. Their {projects.length} project{projects.length === 1 ? "" : "s"} and billing
+            history are retained for audit.
+          </>
         }
-        confirmLabel={active ? "Deactivate" : "Reactivate"}
-        loading={statusMut.isPending}
-        onConfirm={() => statusMut.mutate(active ? false : true)}
+        confirmLabel="Delete developer"
+        loading={deleteMut.isPending}
+        onConfirm={() => deleteMut.mutate()}
         onCancel={() => setConfirmOpen(false)}
       />
     </PageTransition>

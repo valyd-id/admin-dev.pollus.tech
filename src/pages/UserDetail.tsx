@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, BadgeCheck, Fingerprint, ShieldCheck, ScanFace, IdCard, ScrollText, Globe, Phone, Ban, RotateCcw } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Fingerprint, ShieldCheck, ScanFace, IdCard, ScrollText, Globe, Phone, Trash2 } from "lucide-react";
 import { api, apiError, type IdpUserDetail } from "@/lib/api";
 import { PageTransition } from "@/components/PageTransition";
 import { Loader } from "@/components/Loader";
@@ -38,6 +38,7 @@ const Row = ({ k, v }: { k: string; v: React.ReactNode }) => (
 
 export default function UserDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { data, isLoading } = useQuery({
@@ -45,13 +46,14 @@ export default function UserDetail() {
     queryFn: async () => (await api.get(`/admin/idp/users/${id}`)).data.user as IdpUserDetail,
   });
 
-  const statusMut = useMutation({
-    mutationFn: async (active: boolean) => (await api.post(`/admin/idp/users/${id}/status`, { active })).data,
-    onSuccess: (_res, active) => {
-      toast.success(active ? "Identity reactivated" : "Identity deactivated");
+  const deleteMut = useMutation({
+    mutationFn: async () => (await api.delete(`/admin/idp/users/${id}`)).data,
+    onSuccess: () => {
+      toast.success("Identity deleted");
       setConfirmOpen(false);
-      qc.invalidateQueries({ queryKey: ["idp-user", id] });
       qc.invalidateQueries({ queryKey: ["idp-users"] });
+      qc.invalidateQueries({ queryKey: ["idp-overview"] });
+      navigate("/users");
     },
     onError: (e) => toast.error(apiError(e)),
   });
@@ -60,7 +62,6 @@ export default function UserDetail() {
   if (!data) return <EmptyState icon={Fingerprint} title="User not found" description="This identity does not exist." />;
 
   const name = displayName(data);
-  const active = data.is_active !== false;
   const ages = Object.entries(data.age_proofs ?? {}).filter(([, v]) => v).map(([k]) => k.replace("is_", "").replace("_plus", "+"));
 
   return (
@@ -85,16 +86,11 @@ export default function UserDetail() {
         <div className="ml-auto flex items-center gap-2">
           {data.id_verified ? <Pill s="verified" /> : <Pill s="unverified" />}
           {data.reverify_required && <Pill s="reverify required" />}
-          <span className={`rounded-full border px-2 py-0.5 text-[11px] ${active ? "border-emerald-500/30 text-emerald-400" : "border-rose-500/30 text-rose-400"}`}>{active ? "active" : "deactivated"}</span>
           <button
             onClick={() => setConfirmOpen(true)}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-semibold transition ${
-              active
-                ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                : "bg-emerald-600 text-white hover:bg-emerald-500"
-            }`}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-1.5 text-sm font-semibold text-destructive transition hover:bg-destructive/10"
           >
-            {active ? <><Ban className="h-4 w-4" /> Deactivate</> : <><RotateCcw className="h-4 w-4" /> Reactivate</>}
+            <Trash2 className="h-4 w-4" /> Delete
           </button>
         </div>
       </div>
@@ -166,18 +162,17 @@ export default function UserDetail() {
 
       <ConfirmDialog
         open={confirmOpen}
-        tone={active ? "destructive" : "default"}
-        title={active ? "Deactivate this identity?" : "Reactivate this identity?"}
+        title="Delete this identity?"
         description={
-          active ? (
-            <>This disables <span className="font-semibold text-foreground">{name}</span>'s Valyd account and revokes active sessions. Their KYC, biometric and license history are retained for audit and the identity can be reactivated at any time. This is not a permanent deletion.</>
-          ) : (
-            <>This restores <span className="font-semibold text-foreground">{name}</span>'s Valyd account and lets them sign in again.</>
-          )
+          <>
+            This deletes <span className="font-semibold text-foreground">{name}</span>'s Valyd account. They will no longer
+            appear anywhere in the admin and their active sessions are revoked immediately. The underlying record and its
+            KYC/biometric history are retained for audit and compliance.
+          </>
         }
-        confirmLabel={active ? "Deactivate" : "Reactivate"}
-        loading={statusMut.isPending}
-        onConfirm={() => statusMut.mutate(active ? false : true)}
+        confirmLabel="Delete identity"
+        loading={deleteMut.isPending}
+        onConfirm={() => deleteMut.mutate()}
         onCancel={() => setConfirmOpen(false)}
       />
     </PageTransition>
