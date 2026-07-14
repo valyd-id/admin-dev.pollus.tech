@@ -151,6 +151,14 @@ export interface LicenseVerification {
   id: number; license_type?: string; status: string; external_ref?: string;
   checked_at?: string | null; expire_at?: string | null; created_at?: string;
 }
+/** What deleting a Valyd identity will destroy (GET /admin/idp/users/{id}/delete-impact). */
+export interface DeleteImpact {
+  is_developer: boolean;
+  developer: { id: number; email: string | null } | null;
+  projects: { id: number; name: string; client_id: string }[];
+  projects_count: number;
+}
+
 export interface IdpUserDetail extends IdpUser {
   phone?: string | null;
   anon_id?: string | null;

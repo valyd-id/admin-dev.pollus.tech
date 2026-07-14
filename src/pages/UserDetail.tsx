@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowLeft, BadgeCheck, Fingerprint, ShieldCheck, ScanFace, IdCard, ScrollText, Globe, Phone, Trash2 } from "lucide-react";
-import { api, apiError, type IdpUserDetail } from "@/lib/api";
+import { api, apiError, type DeleteImpact, type IdpUserDetail } from "@/lib/api";
 import { PageTransition } from "@/components/PageTransition";
 import { Loader } from "@/components/Loader";
 import { EmptyState } from "@/components/EmptyState";
@@ -44,6 +44,14 @@ export default function UserDetail() {
   const { data, isLoading } = useQuery({
     queryKey: ["idp-user", id],
     queryFn: async () => (await api.get(`/admin/idp/users/${id}`)).data.user as IdpUserDetail,
+  });
+
+  // Deleting a Valyd identity cascades: it also removes their developer account and EVERY project
+  // they own. Fetch that list so the admin sees exactly what is about to be destroyed.
+  const { data: impact } = useQuery({
+    queryKey: ["idp-user-delete-impact", id],
+    queryFn: async () => (await api.get(`/admin/idp/users/${id}/delete-impact`)).data.impact as DeleteImpact,
+    enabled: confirmOpen,
   });
 
   const deleteMut = useMutation({
@@ -162,15 +170,45 @@ export default function UserDetail() {
 
       <ConfirmDialog
         open={confirmOpen}
-        title="Delete this identity?"
+        title="Delete this user and everything they own?"
         description={
           <>
-            This deletes <span className="font-semibold text-foreground">{name}</span>'s Valyd account. They will no longer
-            appear anywhere in the admin and their active sessions are revoked immediately. The underlying record and its
-            KYC/biometric history are retained for audit and compliance.
+            This deletes <span className="font-semibold text-foreground">{name}</span>'s Valyd account and revokes their
+            sessions immediately.
+            {impact?.is_developer ? (
+              <>
+                <span className="mt-3 block font-semibold text-foreground">
+                  They are also a developer — this will be deleted too:
+                </span>
+                <ul className="mt-1.5 list-disc space-y-0.5 pl-5">
+                  <li>Their developer account</li>
+                  {impact.projects_count > 0 ? (
+                    <li>
+                      All {impact.projects_count} project{impact.projects_count === 1 ? "" : "s"} they created — these
+                      stop working immediately:
+                      <ul className="mt-1 list-none space-y-0.5 pl-0">
+                        {impact.projects.map((p) => (
+                          <li key={p.id} className="font-mono text-xs text-muted-foreground">
+                            {p.name} ({p.client_id})
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  ) : (
+                    <li>They have no projects</li>
+                  )}
+                </ul>
+                <span className="mt-3 block font-semibold text-destructive">This cannot be undone.</span>
+              </>
+            ) : (
+              <span className="mt-2 block text-muted-foreground">
+                They are not a developer, so no projects are affected. The underlying record and its KYC/biometric
+                history are retained for audit and compliance.
+              </span>
+            )}
           </>
         }
-        confirmLabel="Delete identity"
+        confirmLabel="Delete everything"
         loading={deleteMut.isPending}
         onConfirm={() => deleteMut.mutate()}
         onCancel={() => setConfirmOpen(false)}

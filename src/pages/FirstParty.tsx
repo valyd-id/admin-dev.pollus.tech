@@ -23,6 +23,10 @@ const inputCls =
 
 const toList = (v: string) => v.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
 
+/** "VC Web" -> "vc-web". Mirrors Str::slug() server-side, so the preview matches what's created. */
+const slug = (v: string) =>
+  v.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
 /**
  * First-party OIDC clients (dev-web, verify-console, vc-web, …). These are platform-owned:
  * no developer signs up for them, so the admin creates and manages them here rather than
@@ -33,9 +37,17 @@ export default function FirstParty() {
   const [open, setOpen] = useState(false);
   const [created, setCreated] = useState<Project | null>(null);
   const [copied, setCopied] = useState(false);
-  const [form, setForm] = useState({ name: "", description: "", web_origins: "", redirect_uris: "", scopes: "openid, profile" });
+  const [form, setForm] = useState({ name: "", domain: "", client_id: "", description: "", web_origins: "", redirect_uris: "", scopes: "openid, profile, email" });
+  const [advanced, setAdvanced] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
   const [deleting, setDeleting] = useState<Project | null>(null);
+
+  // A first-party app carries no real configuration — everything but the name and the domain is a
+  // constant (see FirstPartyOidcClientSeeder). Derive it, and show the derivation so nothing is
+  // hidden from the admin.
+  const bareDomain = form.domain.trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+  const derivedClientId = form.client_id.trim() || slug(form.name);
+  const derivedRedirect = bareDomain ? `https://${bareDomain}/autologin` : "";
 
   const { data, isLoading } = useQuery({
     queryKey: ["first-party"],
@@ -57,16 +69,25 @@ export default function FirstParty() {
     mutationFn: async () =>
       (await api.post("/admin/first-party-projects", {
         name: form.name.trim(),
+        // Name + domain is all a first-party app actually needs; the server derives client_id,
+        // origins, redirect URI, post-logout URI and scopes from these (mirroring the seeder).
+        domain: bareDomain,
         description: form.description.trim() || null,
-        web_origins: toList(form.web_origins),
-        redirect_uris: toList(form.redirect_uris),
-        allowed_scopes: toList(form.scopes),
+        // Advanced overrides only. Sent when set, so the derived value wins by default.
+        ...(form.client_id.trim() ? { client_id: form.client_id.trim() } : {}),
+        ...(toList(form.web_origins).length ? { web_origins: toList(form.web_origins) } : {}),
+        ...(toList(form.redirect_uris).length ? { redirect_uris: toList(form.redirect_uris) } : {}),
+        ...(toList(form.scopes).length ? { allowed_scopes: toList(form.scopes) } : {}),
       })).data.project as Project,
     onSuccess: (p) => {
-      toast.success("First-party project created");
+      toast.success("First-party app created");
       setOpen(false);
-      setForm({ name: "", description: "", web_origins: "", redirect_uris: "", scopes: "openid, profile" });
-      setCreated(p); // surface the secret exactly once
+      setAdvanced(false);
+      setForm({ name: "", domain: "", client_id: "", description: "", web_origins: "", redirect_uris: "", scopes: "openid, profile, email" });
+      // NOT "surface the secret exactly once" — a first-party app is a PUBLIC client and has no
+      // secret at all (the backend sets client_secret = null; the OIDC token endpoint never asks
+      // for one). Showing a secret here was theatre. We just confirm what was created.
+      setCreated(p);
       qc.invalidateQueries({ queryKey: ["first-party"] });
       qc.invalidateQueries({ queryKey: ["stats"] });
     },
@@ -154,24 +175,74 @@ export default function FirstParty() {
           <div className="space-y-4 py-2">
             <div>
               <label className="mb-1.5 block text-sm font-medium">Name</label>
-              <input autoFocus className={inputCls} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. admin-console" />
+              <input autoFocus className={inputCls} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. VC Web" />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium">Description</label>
-              <textarea rows={2} className={inputCls} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+              <label className="mb-1.5 block text-sm font-medium">Domain</label>
+              <input
+                className={inputCls}
+                value={form.domain}
+                onChange={(e) => setForm({ ...form, domain: e.target.value })}
+                placeholder="e.g. vc.pollus.tech"
+              />
             </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Web origins</label>
-              <textarea rows={2} className={inputCls} value={form.web_origins} onChange={(e) => setForm({ ...form, web_origins: e.target.value })} placeholder="https://app.example.com (one per line)" />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Redirect URIs</label>
-              <textarea rows={2} className={inputCls} value={form.redirect_uris} onChange={(e) => setForm({ ...form, redirect_uris: e.target.value })} placeholder="https://app.example.com/callback (one per line)" />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Scopes</label>
-              <input className={inputCls} value={form.scopes} onChange={(e) => setForm({ ...form, scopes: e.target.value })} placeholder="openid, profile" />
-            </div>
+
+            {/* Show the derivation rather than hiding it. Name + domain is genuinely all the
+                information a first-party app carries; everything else is a constant. */}
+            {(form.name.trim() || bareDomain) && (
+              <div className="rounded-xl border border-border bg-muted/40 p-3 text-xs">
+                <p className="mb-2 font-medium text-foreground">Will be created as</p>
+                <dl className="space-y-1 font-mono text-muted-foreground">
+                  <div className="flex gap-2"><dt className="w-28 shrink-0">client_id</dt><dd className="truncate">{derivedClientId || "—"}</dd></div>
+                  <div className="flex gap-2"><dt className="w-28 shrink-0">redirect</dt><dd className="truncate">{derivedRedirect || "—"}</dd></div>
+                  <div className="flex gap-2"><dt className="w-28 shrink-0">scopes</dt><dd className="truncate">openid, profile, email</dd></div>
+                  <div className="flex gap-2"><dt className="w-28 shrink-0">secret</dt><dd>none — PKCE public client</dd></div>
+                  <div className="flex gap-2"><dt className="w-28 shrink-0">consent</dt><dd>skipped — platform-owned</dd></div>
+                </dl>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setAdvanced((v) => !v)}
+              className="text-xs font-medium text-muted-foreground underline-offset-2 hover:underline"
+            >
+              {advanced ? "Hide advanced" : "Advanced"}
+            </button>
+
+            {advanced && (
+              <div className="space-y-4 border-l-2 border-border pl-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Client ID</label>
+                  <input
+                    className={inputCls}
+                    value={form.client_id}
+                    onChange={(e) => setForm({ ...form, client_id: e.target.value })}
+                    placeholder={derivedClientId || "e.g. agent-web"}
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Blank → derived from the name. Lowercase letters, numbers and dashes; must start with
+                    a letter. It ships in the browser — an identifier, not a secret.
+                  </p>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Description</label>
+                  <textarea rows={2} className={inputCls} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Web origins</label>
+                  <textarea rows={2} className={inputCls} value={form.web_origins} onChange={(e) => setForm({ ...form, web_origins: e.target.value })} placeholder={bareDomain ? `https://${bareDomain}` : "https://app.example.com (one per line)"} />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Redirect URIs</label>
+                  <textarea rows={2} className={inputCls} value={form.redirect_uris} onChange={(e) => setForm({ ...form, redirect_uris: e.target.value })} placeholder={derivedRedirect || "https://app.example.com/autologin (one per line)"} />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Scopes</label>
+                  <input className={inputCls} value={form.scopes} onChange={(e) => setForm({ ...form, scopes: e.target.value })} placeholder="openid, profile, email" />
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -198,27 +269,20 @@ export default function FirstParty() {
               <Check className="h-5 w-5 text-emerald-500" /> {created?.name} created
             </DialogTitle>
             <DialogDescription>
-              Copy the client secret now — it is shown only once and cannot be retrieved later.
+              Public client — PKCE, no client secret, no consent screen. Copy the Client ID into your app.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-1">
             <CopyField label="Client ID" value={created?.client_id ?? ""} />
-            <div>
-              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Client secret</label>
-              <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2">
-                <code className="min-w-0 flex-1 truncate font-mono text-xs">{created?.client_secret}</code>
-                <button
-                  onClick={() => {
-                    navigator.clipboard?.writeText(created?.client_secret ?? "");
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 1500);
-                  }}
-                  className="shrink-0 text-muted-foreground transition hover:text-foreground"
-                  aria-label="Copy client secret"
-                >
-                  {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
-                </button>
-              </div>
+            <div className="rounded-xl border border-primary/30 bg-primary/5 px-3 py-2">
+              <p className="text-sm font-medium">No client secret — this is a public client</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                First-party apps are browser clients (like dev-web / vc-web): their code ships to the
+                user, so a secret could never stay private. They authenticate with <strong>PKCE</strong>
+                {" "}instead — send a <code>code_challenge</code> on <code>/authorize</code>, then the
+                matching <code>code_verifier</code> on <code>/token</code>. No{" "}
+                <code>client_secret</code> is issued or accepted.
+              </p>
             </div>
           </div>
           <DialogFooter>
