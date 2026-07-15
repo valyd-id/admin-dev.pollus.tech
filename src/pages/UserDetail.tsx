@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, BadgeCheck, Fingerprint, ShieldCheck, ScanFace, IdCard, ScrollText, Globe, Phone, Trash2 } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Fingerprint, ShieldCheck, ScanFace, IdCard, ScrollText, Globe, Phone, Trash2 , Lock, LockOpen } from "lucide-react";
 import { api, apiError, type DeleteImpact, type IdpUserDetail } from "@/lib/api";
 import { PageTransition } from "@/components/PageTransition";
 import { Loader } from "@/components/Loader";
@@ -54,6 +54,16 @@ export default function UserDetail() {
     enabled: confirmOpen,
   });
 
+  const lockMut = useMutation({
+    mutationFn: async (lock: boolean) =>
+      (await api.patch(`/admin/idp/users/${id}/kyc-lock`, { lock })).data,
+    onSuccess: (res) => {
+      toast.success(res?.kyc_locked ? "KYC verification locked" : "KYC verification unlocked");
+      qc.invalidateQueries({ queryKey: ["idp-user", id] });
+    },
+    onError: (e) => toast.error(apiError(e)),
+  });
+
   const deleteMut = useMutation({
     mutationFn: async () => (await api.delete(`/admin/idp/users/${id}`)).data,
     onSuccess: () => {
@@ -94,6 +104,20 @@ export default function UserDetail() {
         <div className="ml-auto flex items-center gap-2">
           {data.id_verified ? <Pill s="verified" /> : <Pill s="unverified" />}
           {data.reverify_required && <Pill s="reverify required" />}
+          {data.kyc_locked && <Pill s="kyc locked" />}
+          <button
+            onClick={() => lockMut.mutate(!data.kyc_locked)}
+            disabled={lockMut.isPending}
+            title={data.kyc_locked ? "Allow this user to attempt KYC again" : "Block this user from KYC verification"}
+            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-semibold transition disabled:opacity-50 ${
+              data.kyc_locked
+                ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-500 hover:bg-emerald-500/10"
+                : "border-amber-500/30 bg-amber-500/5 text-amber-500 hover:bg-amber-500/10"
+            }`}
+          >
+            {data.kyc_locked ? <LockOpen className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+            {data.kyc_locked ? "Unlock KYC" : "Lock KYC"}
+          </button>
           <button
             onClick={() => setConfirmOpen(true)}
             className="inline-flex items-center gap-1.5 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-1.5 text-sm font-semibold text-destructive transition hover:bg-destructive/10"

@@ -165,6 +165,9 @@ export interface IdpUserDetail extends IdpUser {
   age_proofs?: Record<string, boolean>;
   pseudonyms?: { name?: string | null; username?: string | null; email?: string | null };
   reverify_required?: boolean;
+  kyc_locked?: boolean;
+  kyc_locked_at?: string | null;
+  verification_failure_count?: number;
   kyc_processes?: KycProcess[];
   human_verifications?: HumanVerification[];
   license_verifications?: LicenseVerification[];
