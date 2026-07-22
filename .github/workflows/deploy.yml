@@ -34,7 +34,7 @@ jobs:
           script: |
             set -euo pipefail
 
-            APP_DIR="/var/www/pollus_main_servers/admin-dev.pollus.tech"
+            APP_DIR="/var/www/pollus_main_servers/admin-portal"
             BRANCH="main"
 
             echo "==> cd $APP_DIR"

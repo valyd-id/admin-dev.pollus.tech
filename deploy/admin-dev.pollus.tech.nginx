@@ -13,12 +13,12 @@ server {
     server_name admin-dev.pollus.tech;
     client_max_body_size 25M;
 
-    root /var/www/pollus_main_servers/admin-dev.pollus.tech/dist;
+    root /var/www/pollus_main_servers/admin-portal/dist;
     index index.html;
 
     # Let certbot answer the ACME challenge from the document root.
     location /.well-known/acme-challenge/ {
-        root /var/www/pollus_main_servers/admin-dev.pollus.tech/dist;
+        root /var/www/pollus_main_servers/admin-portal/dist;
         allow all;
     }
 

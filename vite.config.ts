@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
-// admin-dev.pollus.tech — back-office for the developer portal
+// admin.valyd.work — back-office for the developer portal
 export default defineConfig({
   server: {
     host: "::",

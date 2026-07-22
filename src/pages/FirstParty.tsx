@@ -183,7 +183,7 @@ export default function FirstParty() {
                 className={inputCls}
                 value={form.domain}
                 onChange={(e) => setForm({ ...form, domain: e.target.value })}
-                placeholder="e.g. vc.pollus.tech"
+                placeholder="e.g. vc.valyd.work"
               />
             </div>
 

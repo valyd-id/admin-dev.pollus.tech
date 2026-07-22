@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# One-shot deploy for admin-dev.pollus.tech.
+# One-shot deploy for admin.valyd.work.
 # Run with sudo:  sudo bash deploy/go-live.sh
 set -euo pipefail
 
-APP_DIR="/var/www/pollus_main_servers/admin-dev.pollus.tech"
-DOMAIN="admin-dev.pollus.tech"
+APP_DIR="/var/www/pollus_main_servers/admin.valyd.work"
+DOMAIN="admin.valyd.work"
 CONF_SRC="$APP_DIR/deploy/$DOMAIN.nginx"
 CONF_DST="/etc/nginx/sites-available/$DOMAIN"
 ENABLED="/etc/nginx/sites-enabled/$DOMAIN"
