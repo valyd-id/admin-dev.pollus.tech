@@ -13,6 +13,7 @@ import Users from "@/pages/Users";
 import UserDetail from "@/pages/UserDetail";
 import DeveloperDetail from "@/pages/DeveloperDetail";
 import FirstParty from "@/pages/FirstParty";
+import Customers from "@/pages/Customers";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -45,6 +46,7 @@ function AppRoutes() {
         <Route path="/projects" element={<Projects />} />
         <Route path="/projects/:id" element={<ProjectDetail />} />
         <Route path="/first-party" element={<FirstParty />} />
+        <Route path="/customers" element={<Customers />} />
         <Route path="/users" element={<Users />} />
         <Route path="/users/:id" element={<UserDetail />} />
         <Route path="/developers" element={<Developers />} />
