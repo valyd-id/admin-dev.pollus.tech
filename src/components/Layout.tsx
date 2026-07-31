@@ -10,10 +10,13 @@ import {
   ShieldCheck,
   Server,
   Building2,
+  LifeBuoy,
   Menu,
   X,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { initials } from "@/lib/format";
 import {
@@ -32,9 +35,17 @@ const NAV = [
   { to: "/projects", label: "Projects", icon: FolderKanban, end: false },
   { to: "/first-party", label: "First-party", icon: Server, end: false },
   { to: "/customers", label: "Customers", icon: Building2, end: false },
+  { to: "/tickets", label: "Tickets", icon: LifeBuoy, end: false },
 ];
 
-function NavItem({ to, label, icon: Icon, end, onClick }: typeof NAV[number] & { onClick?: () => void }) {
+function NavItem({
+  to,
+  label,
+  icon: Icon,
+  end,
+  onClick,
+  badge,
+}: typeof NAV[number] & { onClick?: () => void; badge?: number }) {
   return (
     <NavLink to={to} end={end} onClick={onClick}>
       {({ isActive }) => (
@@ -53,6 +64,11 @@ function NavItem({ to, label, icon: Icon, end, onClick }: typeof NAV[number] & {
           )}
           <Icon className="relative z-10 h-[18px] w-[18px]" />
           <span className="relative z-10">{label}</span>
+          {typeof badge === "number" && badge > 0 && (
+            <span className="relative z-10 ml-auto inline-flex min-w-[20px] items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-semibold text-white">
+              {badge > 99 ? "99+" : badge}
+            </span>
+          )}
         </div>
       )}
     </NavLink>
@@ -60,6 +76,15 @@ function NavItem({ to, label, icon: Icon, end, onClick }: typeof NAV[number] & {
 }
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+  // Live open-ticket count for the nav badge. Poll so admins see new tickets without a reload.
+  const { data: ticketSummary } = useQuery({
+    queryKey: ["admin-tickets-summary"],
+    queryFn: async () => (await api.get("/admin/tickets/summary")).data as { open_count: number },
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+  const openTickets = ticketSummary?.open_count ?? 0;
+
   return (
     <div className="flex h-full flex-col">
       <Link to="/" className="flex items-center gap-2.5 px-2 py-1.5">
@@ -74,7 +99,12 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
       <nav className="mt-6 flex flex-1 flex-col gap-1.5">
         {NAV.map((item) => (
-          <NavItem key={item.to} {...item} onClick={onNavigate} />
+          <NavItem
+            key={item.to}
+            {...item}
+            onClick={onNavigate}
+            badge={item.to === "/tickets" ? openTickets : undefined}
+          />
         ))}
       </nav>
 
