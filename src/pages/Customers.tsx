@@ -11,7 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { formatDate } from "@/lib/format";
 
 /** Where the dev console lives (admin "open console as tenant" opens it there). */
-const DEV_PORTAL_URL = (import.meta.env.VITE_DEV_PORTAL_URL as string) || "https://dev.valyd.work";
+// Env-driven per deployment (VITE_DEV_PORTAL_URL); the fallback is the PRODUCTION console so a
+// missing var can never route a prod admin to a dev environment.
+const DEV_PORTAL_URL = (import.meta.env.VITE_DEV_PORTAL_URL as string) || "https://dev.valyd.id";
 
 type Tenant = {
   id: number;

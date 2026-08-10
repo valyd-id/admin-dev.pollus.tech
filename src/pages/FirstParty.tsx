@@ -183,7 +183,7 @@ export default function FirstParty() {
                 className={inputCls}
                 value={form.domain}
                 onChange={(e) => setForm({ ...form, domain: e.target.value })}
-                placeholder="e.g. vc.valyd.work"
+                placeholder={`e.g. vc.${new URL((import.meta.env.VITE_DEV_PORTAL_URL as string) || "https://dev.valyd.id").hostname.replace(/^dev\./, "")}`}
               />
             </div>
 
