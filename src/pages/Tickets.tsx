@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Search, LifeBuoy, ChevronLeft, ChevronRight, CheckCircle2, Loader2 } from "lucide-react";
+import { Search, LifeBuoy, ChevronLeft, ChevronRight, CheckCircle2, Loader2, Clock, Flag, Tag, UserRound } from "lucide-react";
 import { api, apiError } from "@/lib/api";
 import { PageTransition, staggerContainer, staggerItem } from "@/components/PageTransition";
 import { EmptyState } from "@/components/EmptyState";
@@ -146,42 +146,58 @@ export default function Tickets() {
               <motion.div
                 key={t.id}
                 variants={staggerItem}
-                className="rounded-2xl border border-border bg-card p-4 shadow-sm"
+                className={`overflow-hidden rounded-2xl border bg-card shadow-sm ${
+                  isOpen ? "border-amber-500/25" : "border-border"
+                }`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-sm font-semibold">{t.subject}</p>
-                      {t.category && (
-                        <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] capitalize text-slate-400">
-                          {t.category}
-                        </span>
-                      )}
-                      <span
-                        className={`rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize ${
-                          priorityTone[t.priority] ?? priorityTone.normal
-                        }`}
-                      >
-                        {t.priority}
-                      </span>
+                {/* Accent strip by status */}
+                <div className={`h-1 w-full ${isOpen ? "bg-amber-500/70" : "bg-emerald-500/70"}`} />
+                <div className="p-4">
+                  <div className="flex items-start gap-3">
+                    {/* Reporter avatar */}
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/15 to-sky-500/15 text-xs font-semibold text-sky-500">
+                      {(reporter.slice(0, 2) || "U").toUpperCase()}
                     </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {reporter}
-                      {t.user_email && t.user_name ? ` · ${t.user_email}` : ""} · Raised {formatDate(t.created_at)}
-                    </p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="min-w-0 flex-1 text-sm font-semibold leading-snug">{t.subject}</p>
+                        <span
+                          className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                            isOpen
+                              ? "border-amber-500/30 bg-amber-500/15 text-amber-400"
+                              : "border-emerald-500/30 bg-emerald-500/15 text-emerald-400"
+                          }`}
+                        >
+                          {isOpen ? <Clock className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
+                          {isOpen ? "Open" : "Resolved"}
+                        </span>
+                      </div>
+                      {/* Meta chips */}
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize ${
+                            priorityTone[t.priority] ?? priorityTone.normal
+                          }`}
+                        >
+                          <Flag className="h-2.5 w-2.5" /> {t.priority}
+                        </span>
+                        {t.category && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] capitalize text-muted-foreground">
+                            <Tag className="h-2.5 w-2.5" /> {t.category}
+                          </span>
+                        )}
+                      </div>
+                      {/* Reporter line */}
+                      <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+                        <UserRound className="h-3 w-3" />
+                        <span className="truncate">{reporter}</span>
+                        {t.user_email && t.user_name && <span className="truncate">· {t.user_email}</span>}
+                        <span>· Raised {formatDate(t.created_at)}</span>
+                      </p>
+                    </div>
                   </div>
-                  <span
-                    className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
-                      isOpen
-                        ? "border-amber-500/30 bg-amber-500/15 text-amber-400"
-                        : "border-emerald-500/30 bg-emerald-500/15 text-emerald-400"
-                    }`}
-                  >
-                    {isOpen ? "Open" : "Resolved"}
-                  </span>
-                </div>
 
-                <p className="mt-3 whitespace-pre-wrap text-sm text-foreground/90">{t.body}</p>
+                  <p className="mt-3 whitespace-pre-wrap rounded-xl bg-muted/40 p-3 text-sm text-foreground/90">{t.body}</p>
 
                 {!isOpen && t.resolution && (
                   <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-3">
@@ -242,6 +258,7 @@ export default function Tickets() {
                     )}
                   </div>
                 )}
+                </div>
               </motion.div>
             );
           })}

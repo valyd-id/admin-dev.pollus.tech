@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { Search, FolderKanban, Check, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Search, FolderKanban, Check, ChevronLeft, ChevronRight, Loader2, User, KeyRound, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { api, apiError, type Pagination, type Project, type ProjectStatus } from "@/lib/api";
 import { PageTransition, staggerContainer, staggerItem } from "@/components/PageTransition";
@@ -110,57 +110,57 @@ export default function Projects() {
       ) : !data || data.projects.length === 0 ? (
         <EmptyState icon={FolderKanban} title="No projects found" description="Try a different filter or search term." />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-          <div className="hidden grid-cols-12 gap-4 border-b border-border bg-muted/40 px-5 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground md:grid">
-            <div className="col-span-4">Project</div>
-            <div className="col-span-3">Owner</div>
-            <div className="col-span-2">Scopes</div>
-            <div className="col-span-1">Status</div>
-            <div className="col-span-2 text-right">Actions</div>
-          </div>
+        <motion.div
+          key={`${status}-${search}-${page}`}
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
+        >
+          <AnimatePresence>
+            {data.projects.map((p) => (
+              <motion.div
+                key={p.id}
+                variants={staggerItem}
+                layout
+                exit={{ opacity: 0, scale: 0.97 }}
+                className="group flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm transition-colors hover:border-sky-500/40"
+              >
+                {/* Header: identity + status */}
+                <div className="flex items-start justify-between gap-3">
+                  <Link to={`/projects/${p.id}`} className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/15 to-cyan-500/15 text-sm font-semibold text-sky-600 dark:text-sky-400">
+                      {p.name.slice(0, 1).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold group-hover:text-sky-600 dark:group-hover:text-sky-400">{p.name}</p>
+                      <p className="truncate font-mono text-[11px] text-muted-foreground">{p.client_id}</p>
+                    </div>
+                  </Link>
+                  <StatusBadge status={p.status} />
+                </div>
 
-          <motion.div
-            key={`${status}-${search}-${page}`}
-            variants={staggerContainer}
-            initial="hidden"
-            animate="show"
-            className="divide-y divide-border"
-          >
-            <AnimatePresence>
-              {data.projects.map((p) => (
-                <motion.div
-                  key={p.id}
-                  variants={staggerItem}
-                  layout
-                  exit={{ opacity: 0, height: 0 }}
-                  className="grid grid-cols-1 items-center gap-3 px-5 py-4 transition-colors hover:bg-muted/40 md:grid-cols-12 md:gap-4"
-                >
-                  <div className="md:col-span-4">
-                    <Link to={`/projects/${p.id}`} className="group flex items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500/10 to-cyan-500/10 text-sm font-semibold text-sky-600 dark:text-sky-400">
-                        {p.name.slice(0, 1).toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium group-hover:text-sky-600 dark:group-hover:text-sky-400">{p.name}</p>
-                        <p className="truncate font-mono text-xs text-muted-foreground">{p.client_id}</p>
-                      </div>
-                    </Link>
-                  </div>
-
-                  <div className="min-w-0 md:col-span-3">
+                {/* Owner */}
+                <div className="flex items-center gap-2 rounded-xl bg-muted/40 px-3 py-2">
+                  <User className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0">
                     <p className="truncate text-sm">{ownerName(p.owner)}</p>
                     <p className="truncate text-xs text-muted-foreground">{p.owner?.email || "—"}</p>
                   </div>
+                </div>
 
-                  <div className="md:col-span-2">
-                    <ScopeBadges scopes={p.allowed_scopes} />
-                  </div>
+                {/* Scopes */}
+                <div className="flex items-start gap-2">
+                  <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <ScopeBadges scopes={p.allowed_scopes} />
+                </div>
 
-                  <div className="md:col-span-1">
-                    <StatusBadge status={p.status} />
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2 md:col-span-2">
+                {/* Footer: created + actions */}
+                <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-3">
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" /> {timeAgo(p.created_at)}
+                  </span>
+                  <div className="flex items-center gap-2">
                     {p.status === "pending" && (
                       <button
                         onClick={() => setStatusMut.mutate({ id: p.id, next: "active" })}
@@ -182,13 +182,11 @@ export default function Projects() {
                       Manage
                     </Link>
                   </div>
-
-                  <p className="text-xs text-muted-foreground md:hidden">Created {timeAgo(p.created_at)}</p>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
-        </div>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </motion.div>
       )}
 
       {pag && pag.pages > 1 && (

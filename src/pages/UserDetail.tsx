@@ -41,6 +41,11 @@ export default function UserDetail() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Opt-in erasure of the biometric face data. One face can back several console accounts
+  // (different emails), so this defaults OFF and spells out who loses face login.
+  // Always true by policy: deleting a user always erases their data, face included. The
+  // checkbox below stays visible (checked + disabled) purely to TELL the admin this happens.
+  const deleteFace = true;
   const { data, isLoading } = useQuery({
     queryKey: ["idp-user", id],
     queryFn: async () => (await api.get(`/admin/idp/users/${id}`)).data.user as IdpUserDetail,
@@ -65,9 +70,10 @@ export default function UserDetail() {
   });
 
   const deleteMut = useMutation({
-    mutationFn: async () => (await api.delete(`/admin/idp/users/${id}`)).data,
-    onSuccess: () => {
-      toast.success("Identity deleted");
+    mutationFn: async () =>
+      (await api.delete(`/admin/idp/users/${id}`, { params: { delete_face: deleteFace ? 1 : 0 } })).data,
+    onSuccess: (res) => {
+      toast.success(res?.face_deleted ? "Identity and face data deleted" : "Identity deleted");
       setConfirmOpen(false);
       qc.invalidateQueries({ queryKey: ["idp-users"] });
       qc.invalidateQueries({ queryKey: ["idp-overview"] });
@@ -88,20 +94,22 @@ export default function UserDetail() {
         <ArrowLeft className="h-4 w-4" /> Back to users
       </Link>
 
-      <div className="mb-6 flex items-center gap-4">
-        <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-500 text-lg font-semibold text-white">
-          {initials(name)}
-          {data.id_verified && (
-            <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-background">
-              <BadgeCheck className="h-3 w-3 text-white" />
-            </span>
-          )}
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center">
+        <div className="flex min-w-0 items-center gap-4">
+          <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-500 text-lg font-semibold text-white">
+            {initials(name)}
+            {data.id_verified && (
+              <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-background">
+                <BadgeCheck className="h-3 w-3 text-white" />
+              </span>
+            )}
+          </div>
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">{name}</h1>
+            <p className="truncate text-sm text-muted-foreground">{data.email || "No email"}</p>
+          </div>
         </div>
-        <div className="min-w-0">
-          <h1 className="truncate text-2xl font-semibold tracking-tight">{name}</h1>
-          <p className="truncate text-sm text-muted-foreground">{data.email || "No email"}</p>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 lg:ml-auto lg:justify-end">
           {data.id_verified ? <Pill s="verified" /> : <Pill s="unverified" />}
           {data.reverify_required && <Pill s="reverify required" />}
           {data.kyc_locked && <Pill s="kyc locked" />}
@@ -228,6 +236,42 @@ export default function UserDetail() {
               <span className="mt-2 block text-muted-foreground">
                 They are not a developer, so no projects are affected. The underlying record and its KYC/biometric
                 history are retained for audit and compliance.
+              </span>
+            )}
+            {impact?.face?.enrolled && (
+              <span className="mt-4 block rounded-xl border border-border/60 bg-background/40 p-3">
+                <label className="flex items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    checked
+                    disabled
+                    className="mt-0.5 h-4 w-4 accent-destructive opacity-70"
+                  />
+                  <span className="block text-left">
+                    <span className="flex items-center gap-1.5 font-semibold text-foreground">
+                      <ScanFace className="h-4 w-4 text-sky-400" /> Their face data is deleted too
+                    </span>
+                    <span className="mt-1 block text-muted-foreground">
+                      Permanently erases the enrolled face (vector, features and images) from Valyd and
+                      from Verify's reusable identities.
+                      {(impact.face.linked_accounts_count ?? 0) > 0 && (
+                        <>
+                          {" "}This face is linked to{" "}
+                          <span className="font-semibold text-foreground">
+                            {impact.face.linked_accounts_count} dev portal account
+                            {impact.face.linked_accounts_count === 1 ? "" : "s"}
+                          </span>
+                          {" "}— all of them lose face login:
+                          <span className="mt-1 block">
+                            {impact.face.linked_accounts.map((e) => (
+                              <span key={e} className="block font-mono text-xs">{e}</span>
+                            ))}
+                          </span>
+                        </>
+                      )}
+                    </span>
+                  </span>
+                </label>
               </span>
             )}
           </>

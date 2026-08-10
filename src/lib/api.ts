@@ -157,6 +157,7 @@ export interface DeleteImpact {
   developer: { id: number; email: string | null } | null;
   projects: { id: number; name: string; client_id: string }[];
   projects_count: number;
+  face?: { enrolled: boolean; linked_accounts: string[]; linked_accounts_count: number };
 }
 
 export interface IdpUserDetail extends IdpUser {

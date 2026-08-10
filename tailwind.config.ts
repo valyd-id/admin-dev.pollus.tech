@@ -121,7 +121,9 @@ export default {
 				'pulse-ring': 'pulse-ring 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'
 			},
 			fontFamily: {
-				'inter': ['Inter', 'sans-serif']
+				'inter': ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+				'sans': ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+				'mono': ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace']
 			}
 		}
 	},

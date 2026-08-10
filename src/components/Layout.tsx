@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -147,6 +147,12 @@ export function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
 
+  // Always close the mobile drawer on navigation. Belt-and-braces with the onNavigate handler:
+  // even a programmatic route change (redirect, back button) can never strand an open drawer.
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       {/* Desktop sidebar */}
@@ -154,35 +160,34 @@ export function Layout() {
         <SidebarContent />
       </aside>
 
-      {/* Mobile drawer */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <>
-            <motion.div
-              className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setMobileOpen(false)}
-            />
-            <motion.aside
-              className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-slate-900 p-4 lg:hidden"
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ type: "spring", stiffness: 320, damping: 34 }}
-            >
-              <button
-                className="absolute right-3 top-3 text-slate-400 hover:text-white"
-                onClick={() => setMobileOpen(false)}
-              >
-                <X className="h-5 w-5" />
-              </button>
-              <SidebarContent onNavigate={() => setMobileOpen(false)} />
-            </motion.aside>
-          </>
+      {/* Mobile drawer.
+          The backdrop is ALWAYS rendered and toggled purely with CSS — when closed it is
+          `pointer-events-none opacity-0`, so it can never swallow taps across the app (an earlier
+          AnimatePresence-exit version left an invisible, still-interactive overlay mounted, which
+          froze every click and made search/nav look dead). The drawer itself just slides on a CSS
+          transform, so there is no exiting-node lifecycle to get stuck. */}
+      <div
+        aria-hidden={!mobileOpen}
+        onClick={() => setMobileOpen(false)}
+        className={cn(
+          "fixed inset-0 z-40 bg-black/50 transition-opacity duration-200 lg:hidden",
+          mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"
         )}
-      </AnimatePresence>
+      />
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-slate-900 p-4 transition-transform duration-300 ease-out lg:hidden",
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        <button
+          className="absolute right-3 top-3 text-slate-400 hover:text-white"
+          onClick={() => setMobileOpen(false)}
+        >
+          <X className="h-5 w-5" />
+        </button>
+        <SidebarContent onNavigate={() => setMobileOpen(false)} />
+      </aside>
 
       <div className="lg:pl-64">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border/60 bg-background/80 px-4 backdrop-blur-xl sm:px-6">
