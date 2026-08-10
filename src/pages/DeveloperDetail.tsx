@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { ArrowLeft, BadgeCheck, Mail, Phone, Fingerprint, CalendarDays, FolderKanban, ShieldCheck, Trash2, Server } from "lucide-react";
 import { api, apiError, type Developer } from "@/lib/api";
+import { CreditBalance } from "@/components/CreditBalance";
 import { PageTransition, staggerContainer, staggerItem } from "@/components/PageTransition";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ScopeBadges } from "@/components/ScopeBadges";
@@ -149,6 +150,8 @@ export default function DeveloperDetail() {
             ) : (
               <p className="text-sm text-muted-foreground">Not using Verify yet.</p>
             )}
+            {/* Balance is credited HERE only — developer self-serve top-up is disabled by policy. */}
+            <CreditBalance target={{ developer_id: Number(id) }} onDone={() => qc.invalidateQueries({ queryKey: ["developer", id] })} />
           </div>
         </div>
 

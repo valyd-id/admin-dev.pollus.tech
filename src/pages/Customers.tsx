@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { Building2, Plus, Loader2, ExternalLink, Wallet, Users as UsersIcon } from "lucide-react";
 import { api, apiError } from "@/lib/api";
+import { CreditBalance } from "@/components/CreditBalance";
 import { PageTransition, staggerContainer, staggerItem } from "@/components/PageTransition";
 import { EmptyState } from "@/components/EmptyState";
 import { Loader } from "@/components/Loader";
@@ -119,6 +120,11 @@ export default function Customers() {
                   <div className="flex items-center gap-1.5 text-muted-foreground"><UsersIcon className="h-3.5 w-3.5" /> {t.seats} seat{t.seats === 1 ? "" : "s"}</div>
                   <div className="flex items-center gap-1.5 text-muted-foreground"><Wallet className="h-3.5 w-3.5" /> {t.balance == null ? "—" : `$${t.balance.toFixed(2)}`}</div>
                 </div>
+
+                <CreditBalance
+                  target={{ organization_id: t.id }}
+                  onDone={() => qc.invalidateQueries({ queryKey: ["tenants"] })}
+                />
 
                 <div className="mt-auto pt-4">
                   <div className="flex items-center justify-between border-t border-border pt-3">
