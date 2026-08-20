@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Search, LifeBuoy, ChevronLeft, ChevronRight, CheckCircle2, Loader2, Clock, Flag, Tag, UserRound } from "lucide-react";
@@ -47,10 +47,15 @@ const priorityTone: Record<string, string> = {
 export default function Tickets() {
   const [q, setQ] = useState("");
   const [search, setSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(q); setPage(1); }, 300);
+    return () => clearTimeout(t);
+  }, [q]);
   const [status, setStatus] = useState<string>("");
   const [page, setPage] = useState(1);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [allowReKyc, setAllowReKyc] = useState(false);
   const queryClient = useQueryClient();
 
   const { data, isLoading, isFetching } = useQuery({
@@ -64,12 +69,13 @@ export default function Tickets() {
   });
 
   const resolve = useMutation({
-    mutationFn: async ({ id, resolution }: { id: string; resolution: string }) =>
-      (await api.post(`/admin/tickets/${id}/resolve`, { resolution })).data,
-    onSuccess: () => {
-      toast.success("Ticket resolved — the user was notified.");
+    mutationFn: async ({ id, resolution, allow_rekyc }: { id: string; resolution: string; allow_rekyc: boolean }) =>
+      (await api.post(`/admin/tickets/${id}/resolve`, { resolution, allow_rekyc })).data,
+    onSuccess: (data: { re_kyc_granted?: boolean }) => {
+      toast.success(data?.re_kyc_granted ? "Ticket resolved — re-KYC granted and the user was notified." : "Ticket resolved — the user was notified.");
       setResolvingId(null);
       setNote("");
+      setAllowReKyc(false);
       queryClient.invalidateQueries({ queryKey: ["admin-tickets"] });
       queryClient.invalidateQueries({ queryKey: ["admin-tickets-summary"] });
     },
@@ -221,18 +227,33 @@ export default function Tickets() {
                           placeholder="Resolution note — this is shown to the user in their notification."
                           className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-sky-500/30 transition focus:border-sky-500 focus:ring-4"
                         />
+                        <label className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={allowReKyc}
+                            onChange={(e) => setAllowReKyc(e.target.checked)}
+                            className="mt-0.5 h-4 w-4 accent-emerald-600"
+                          />
+                          <span>
+                            <span className="font-medium text-foreground">Allow this user to re-verify (re-KYC)</span>
+                            <span className="block text-xs text-muted-foreground">
+                              Use for a wrong name/DOB or a stuck identity. Flags the account to re-run KYC and prompts the user to re-verify. Their current verification stays until the new one completes.
+                            </span>
+                          </span>
+                        </label>
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => {
                               setResolvingId(null);
                               setNote("");
+                              setAllowReKyc(false);
                             }}
                             className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
                           >
                             Cancel
                           </button>
                           <button
-                            onClick={() => resolve.mutate({ id: t.id, resolution: note.trim() })}
+                            onClick={() => resolve.mutate({ id: t.id, resolution: note.trim(), allow_rekyc: allowReKyc })}
                             disabled={!note.trim() || resolve.isPending}
                             className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
                           >
@@ -241,7 +262,7 @@ export default function Tickets() {
                             ) : (
                               <CheckCircle2 className="h-4 w-4" />
                             )}
-                            Resolve &amp; notify
+                            {allowReKyc ? "Resolve & allow re-KYC" : "Resolve & notify"}
                           </button>
                         </div>
                       </div>
@@ -250,6 +271,7 @@ export default function Tickets() {
                         onClick={() => {
                           setResolvingId(t.id);
                           setNote("");
+                          setAllowReKyc(t.category === "verification");
                         }}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition hover:bg-muted"
                       >

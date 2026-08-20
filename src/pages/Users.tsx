@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -28,6 +28,11 @@ const kycTone: Record<string, string> = {
 export default function Users() {
   const [q, setQ] = useState("");
   const [search, setSearch] = useState("");
+  // Search as you type (debounced) — no need to press Enter.
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(q); setPage(1); }, 300);
+    return () => clearTimeout(t);
+  }, [q]);
   const [page, setPage] = useState(1);
 
   const { data, isLoading, isFetching } = useQuery({
@@ -81,6 +86,9 @@ export default function Users() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold">{name}</p>
                       <p className="truncate text-xs text-muted-foreground">{u.email || "No email"}</p>
+                      {u.username && (
+                        <p className="truncate text-xs text-muted-foreground/80">@{u.username}</p>
+                      )}
                     </div>
                     {tone && <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize ${tone}`}>{u.kyc_status}</span>}
                   </div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -17,6 +17,10 @@ interface UsersResponse {
 export default function Developers() {
   const [q, setQ] = useState("");
   const [search, setSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(q); setPage(1); }, 300);
+    return () => clearTimeout(t);
+  }, [q]);
   const [page, setPage] = useState(1);
 
   const { data, isLoading, isFetching } = useQuery({
@@ -90,6 +94,9 @@ export default function Developers() {
                         )}
                       </div>
                       <p className="truncate text-xs text-muted-foreground">{u.email || "No email"}</p>
+                      {u.username && (
+                        <p className="truncate text-xs text-muted-foreground/80">@{u.username}</p>
+                      )}
                     </div>
                   </div>
                   <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">

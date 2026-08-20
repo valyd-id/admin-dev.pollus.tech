@@ -151,6 +151,8 @@ export function Layout() {
   // even a programmatic route change (redirect, back button) can never strand an open drawer.
   useEffect(() => {
     setMobileOpen(false);
+    // Start every page at the top — otherwise a long list leaves the next page scrolled down.
+    window.scrollTo({ top: 0, left: 0 });
   }, [location.pathname]);
 
   return (

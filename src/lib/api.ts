@@ -89,6 +89,7 @@ export interface Developer {
   id: number;
   email?: string;
   full_name?: string;
+  username?: string | null;
   first_name?: string;
   last_name?: string;
   phone_number?: string;

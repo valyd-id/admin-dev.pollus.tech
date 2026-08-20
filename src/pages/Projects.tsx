@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
@@ -31,6 +31,12 @@ export default function Projects() {
   const [q, setQ] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+
+  // Search as you type — debounce the input into the query so results update without pressing Enter.
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(q); setPage(1); }, 300);
+    return () => clearTimeout(t);
+  }, [q]);
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ["projects", status, search, page],

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, BadgeCheck, Fingerprint, ShieldCheck, ScanFace, IdCard, ScrollText, Globe, Phone, Trash2 , Lock, LockOpen } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Fingerprint, ShieldCheck, ScanFace, IdCard, ScrollText, Globe, Trash2 , Lock, LockOpen } from "lucide-react";
 import { api, apiError, type DeleteImpact, type IdpUserDetail } from "@/lib/api";
 import { PageTransition } from "@/components/PageTransition";
 import { Loader } from "@/components/Loader";
@@ -139,7 +139,6 @@ export default function UserDetail() {
         <Card title="Identity" icon={ShieldCheck}>
           <Row k="Valyd ID" v={<span className="font-mono text-xs">{data.valyd_id || "—"}</span>} />
           <Row k="Country" v={data.country ? <span className="inline-flex items-center gap-1"><Globe className="h-3.5 w-3.5" />{data.country}</span> : "—"} />
-          <Row k="Phone" v={data.phone ? <span className="inline-flex items-center gap-1"><Phone className="h-3.5 w-3.5" />{data.phone}</span> : "—"} />
           <Row k="Joined" v={formatDate(data.created_at)} />
           <div className="mt-3 flex flex-wrap gap-1.5">
             {ages.length ? ages.map((a) => <span key={a} className="rounded-md bg-sky-500/10 px-2 py-0.5 text-xs text-sky-400">{a}</span>) : <span className="text-xs text-muted-foreground">No age proofs</span>}
